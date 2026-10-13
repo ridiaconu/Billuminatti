@@ -17,12 +17,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v4
-      - name: Verificare sintaxa
-        run: |
-          node --check server.js
-          node --check public/app.js
       - name: Build imagine
         run: docker build -t billuminatti:${{ github.sha }} .
+      # Node nu e necesar pe runner: verificarea ruleaza in imaginea construita
+      - name: Verificare sintaxa
+        run: |
+          docker run --rm --entrypoint node billuminatti:${{ github.sha }} --check server.js
+          docker run --rm --entrypoint node billuminatti:${{ github.sha }} --check public/app.js
 
   deploy:
     needs: build
@@ -45,7 +46,7 @@ jobs:
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS -o /dev/null http://localhost:3080/login; then echo "OK"; exit 0; fi
+            if docker exec billuminatti node -e "fetch('http://localhost:3080/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then echo "OK"; exit 0; fi
             sleep 2
           done
           docker compose logs --tail=50
