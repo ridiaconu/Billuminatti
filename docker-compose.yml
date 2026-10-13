@@ -1,0 +1,15 @@
+services:
+  billuminatti:
+    build: .
+    container_name: billuminatti
+    restart: unless-stopped
+    # Reteaua si procesele gazdei: necesare pentru a vedea porturile reale ale homelab-ului
+    network_mode: host
+    pid: host
+    user: root
+    environment:
+      PORT: 8080
+      DISK_PATHS: /,/host   # adauga aici punctele de montare de urmarit
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro

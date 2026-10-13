@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Billuminatti · Homelab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>Billuminatti</h1>
+    <div class="sub" id="host">…</div>
+  </div>
+  <div class="sub right" id="status">se incarca…</div>
+</header>
+
+<main>
+  <section>
+    <h2>Resurse</h2>
+    <div class="grid" id="res"></div>
+  </section>
+
+  <section>
+    <h2>Aplicatii <span class="count" id="appCount"></span></h2>
+    <div class="toolbar"><input id="appFilter" placeholder="Cauta aplicatie…"></div>
+    <div class="grid apps" id="apps"></div>
+    <div class="err" id="appsErr"></div>
+  </section>
+
+  <section>
+    <h2>Porturi <span class="count" id="portCount"></span></h2>
+    <div class="toolbar">
+      <input id="portFilter" placeholder="Cauta port / proces / container…">
+      <label><input type="checkbox" id="onlyExposed"> doar expuse in retea</label>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Port</th><th>Proto</th><th>Aplicatie</th><th>Proces</th><th>Adrese</th><th>Acces</th></tr></thead>
+        <tbody id="ports"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
