@@ -243,6 +243,10 @@ const AUTH_USER = process.env.AUTH_USER || 'admin';
 const SESSION_TTL = (parseInt(process.env.SESSION_HOURS || '168', 10)) * 3600 * 1000;
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true'; // pune true cand e servit prin HTTPS
 const AUTH_DISABLED = process.env.AUTH_DISABLED === 'true';
+// Din spatele Cloudflare Tunnel toate cererile vin de pe 127.0.0.1; cu TRUST_PROXY=true se foloseste IP-ul real
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+const clientIp = req => (TRUST_PROXY && (req.headers['cf-connecting-ip'] || (req.headers['x-forwarded-for'] || '').split(',')[0].trim())) || req.socket.remoteAddress;
+const isHttps = req => TRUST_PROXY && req.headers['x-forwarded-proto'] === 'https';
 
 // AUTH_PASSWORD_HASH (format "scrypt$salt$hash", vezi `node hash-password.js`) sau AUTH_PASSWORD in clar.
 let passwordHash = process.env.AUTH_PASSWORD_HASH || null;
@@ -285,8 +289,8 @@ function isAuthed(req) {
   if (exp < Date.now()) { sessions.delete(t); return false; }
   return true;
 }
-const cookie = (v, maxAge) =>
-  `sid=${v}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${COOKIE_SECURE ? '; Secure' : ''}`;
+const cookie = (v, maxAge, req) =>
+  `sid=${v}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${COOKIE_SECURE || isHttps(req) ? '; Secure' : ''}`;
 
 // limitare incercari: 5 esecuri / 15 min per IP
 const fails = new Map();
@@ -319,7 +323,7 @@ const json = (res, code, obj, headers = {}) => {
 };
 
 async function handleAuth(req, res, pathname) {
-  const ip = req.socket.remoteAddress;
+  const ip = clientIp(req);
   if (pathname === '/auth/login' && req.method === 'POST') {
     if (blocked(ip)) return json(res, 429, { error: 'Prea multe incercari. Reincearca peste 15 minute.' });
     let body;
@@ -330,11 +334,11 @@ async function handleAuth(req, res, pathname) {
     fails.delete(ip);
     const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, Date.now() + SESSION_TTL);
-    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie(token, SESSION_TTL / 1000) });
+    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie(token, SESSION_TTL / 1000, req) });
   }
   if (pathname === '/auth/logout' && req.method === 'POST') {
     sessions.delete(getCookie(req, 'sid'));
-    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
+    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0, req) });
   }
   json(res, 404, { error: 'Not found' });
 }
