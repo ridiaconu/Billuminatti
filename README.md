@@ -18,4 +18,12 @@ Compose-ul foloseste `network_mode: host` si `pid: host` ca sa vada porturile si
 
 Variabile: `PORT` (8080), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
 
-> Nu are autentificare — expune-l doar in reteaua locala sau in spatele unui reverse proxy cu auth.
+## Autentificare
+
+Login cu utilizator + parola (sesiune in cookie `HttpOnly`/`SameSite=Strict`, maxim 5 incercari esuate / 15 min per IP).
+
+- `AUTH_USER` (implicit `admin`), `AUTH_PASSWORD` sau, mai bine, `AUTH_PASSWORD_HASH` generat cu `node hash-password.js "parola"`
+- Daca nu setezi nicio parola, se genereaza una la pornire si apare in loguri
+- `SESSION_HOURS` (168), `COOKIE_SECURE=true` cand e dupa HTTPS, `AUTH_DISABLED=true` pentru a opri login-ul
+
+Traficul nu e criptat de aplicatie: pentru acces din afara retelei locale pune-l in spatele unui reverse proxy cu HTTPS.

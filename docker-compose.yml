@@ -9,6 +9,9 @@ services:
     user: root
     environment:
       PORT: 8080
+      AUTH_USER: admin
+      AUTH_PASSWORD: schimba-ma   # sau foloseste AUTH_PASSWORD_HASH (node hash-password.js "parola")
+      # COOKIE_SECURE: "true"    # activeaza daca e servit prin HTTPS
       DISK_PATHS: /,/host   # adauga aici punctele de montare de urmarit
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

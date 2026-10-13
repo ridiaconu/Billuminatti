@@ -236,6 +236,109 @@ async function ports() {
   return [...seen.values()].map(x => ({ ...x, addresses: [...x.addresses] })).sort((a, b) => a.port - b.port || a.proto.localeCompare(b.proto));
 }
 
+
+// ---------- Autentificare ----------
+const crypto = require('crypto');
+const AUTH_USER = process.env.AUTH_USER || 'admin';
+const SESSION_TTL = (parseInt(process.env.SESSION_HOURS || '168', 10)) * 3600 * 1000;
+const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true'; // pune true cand e servit prin HTTPS
+const AUTH_DISABLED = process.env.AUTH_DISABLED === 'true';
+
+// AUTH_PASSWORD_HASH (format "scrypt$salt$hash", vezi `node hash-password.js`) sau AUTH_PASSWORD in clar.
+let passwordHash = process.env.AUTH_PASSWORD_HASH || null;
+if (!passwordHash) {
+  let pw = process.env.AUTH_PASSWORD;
+  if (!pw && !AUTH_DISABLED) {
+    pw = crypto.randomBytes(9).toString('base64url');
+    console.log(`[auth] AUTH_PASSWORD nesetat. Parola generata pentru "${AUTH_USER}": ${pw}`);
+  }
+  if (pw) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    passwordHash = `scrypt$${salt}$${crypto.scryptSync(pw, salt, 64).toString('hex')}`;
+  }
+}
+function safeEq(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+function checkPassword(pw) {
+  const [alg, salt, hash] = (passwordHash || '').split('$');
+  if (alg !== 'scrypt' || !salt || !hash) return false;
+  const got = crypto.scryptSync(String(pw), salt, hash.length / 2);
+  return crypto.timingSafeEqual(got, Buffer.from(hash, 'hex'));
+}
+
+const sessions = new Map(); // token -> expira
+function getCookie(req, name) {
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return null;
+}
+function isAuthed(req) {
+  if (AUTH_DISABLED) return true;
+  const t = getCookie(req, 'sid');
+  const exp = t && sessions.get(t);
+  if (!exp) return false;
+  if (exp < Date.now()) { sessions.delete(t); return false; }
+  return true;
+}
+const cookie = (v, maxAge) =>
+  `sid=${v}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${COOKIE_SECURE ? '; Secure' : ''}`;
+
+// limitare incercari: 5 esecuri / 15 min per IP
+const fails = new Map();
+function blocked(ip) {
+  const f = fails.get(ip);
+  return f && f.until > Date.now() && f.n >= 5;
+}
+function noteFail(ip) {
+  const f = fails.get(ip);
+  if (!f || f.until < Date.now()) fails.set(ip, { n: 1, until: Date.now() + 15 * 60 * 1000 });
+  else f.n++;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, e] of sessions) if (e < now) sessions.delete(t);
+  for (const [ip, f] of fails) if (f.until < now) fails.delete(ip);
+}, 60 * 1000).unref();
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let d = '';
+    req.on('data', c => { d += c; if (d.length > 4096) { reject(new Error('prea mare')); req.destroy(); } });
+    req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { reject(new Error('JSON invalid')); } });
+    req.on('error', reject);
+  });
+}
+const json = (res, code, obj, headers = {}) => {
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
+  res.end(JSON.stringify(obj));
+};
+
+async function handleAuth(req, res, pathname) {
+  const ip = req.socket.remoteAddress;
+  if (pathname === '/auth/login' && req.method === 'POST') {
+    if (blocked(ip)) return json(res, 429, { error: 'Prea multe incercari. Reincearca peste 15 minute.' });
+    let body;
+    try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
+    const okUser = safeEq(body.username ?? '', AUTH_USER);
+    const okPass = checkPassword(body.password ?? '');
+    if (!(okUser && okPass)) { noteFail(ip); return json(res, 401, { error: 'Utilizator sau parola gresita.' }); }
+    fails.delete(ip);
+    const token = crypto.randomBytes(32).toString('hex');
+    sessions.set(token, Date.now() + SESSION_TTL);
+    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie(token, SESSION_TTL / 1000) });
+  }
+  if (pathname === '/auth/logout' && req.method === 'POST') {
+    sessions.delete(getCookie(req, 'sid'));
+    return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
+  }
+  json(res, 404, { error: 'Not found' });
+}
+
 // ---------- Cache + server ----------
 function cached(fn, ttl) {
   let val, t = 0, pending = null;
@@ -256,6 +359,15 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': '
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  if (url.pathname.startsWith('/auth/')) return handleAuth(req, res, url.pathname);
+  const open = url.pathname === '/login' || url.pathname === '/style.css';
+  if (!open && !isAuthed(req)) {
+    if (url.pathname.startsWith('/api/')) return json(res, 401, { error: 'Neautentificat' });
+    res.writeHead(302, { Location: '/login' }); res.end(); return;
+  }
+  if (url.pathname === '/login' && isAuthed(req)) { res.writeHead(302, { Location: '/' }); res.end(); return; }
   const route = routes[url.pathname];
   if (route) {
     try {
@@ -268,7 +380,7 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
-  const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  const rel = url.pathname === '/' ? 'index.html' : url.pathname === '/login' ? 'login.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
   const file = path.join(PUBLIC, rel);
   if (!file.startsWith(PUBLIC + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
     res.writeHead(404); res.end('Not found'); return;
@@ -278,4 +390,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 cpuUsage(); network();
+if (AUTH_DISABLED) console.warn('[auth] ATENTIE: autentificarea este dezactivata (AUTH_DISABLED=true)');
 server.listen(PORT, HOST, () => console.log(`Billuminatti ruleaza pe http://${HOST}:${PORT}`));

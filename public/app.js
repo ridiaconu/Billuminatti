@@ -11,6 +11,7 @@ let apps = [], ports = [];
 
 async function get(url) {
   const r = await fetch(url);
+  if (r.status === 401) { location.href = '/login'; throw new Error('sesiune expirata'); }
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
@@ -75,3 +76,5 @@ const run = () => { tick(loadResources); tick(loadApps, 'appsErr'); tick(loadPor
 run();
 setInterval(() => tick(loadResources), 2000);
 setInterval(() => { tick(loadApps, 'appsErr'); tick(loadPorts); }, 5000);
+
+$('logout').onclick = async e => { e.preventDefault(); await fetch('/auth/logout', { method: 'POST' }); location.href = '/login'; };
