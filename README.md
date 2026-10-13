@@ -22,7 +22,7 @@ Variabile: `PORT` (3080), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `
 
 `.github/workflows/deploy.yml`: la PR face doar verificare + build; la push pe `main` (sau manual) face build si `docker compose up -d --build` pe runner, apoi un health check pe portul 3080.
 
-Cerinte pe runner: Docker + plugin-ul `docker compose`, utilizatorul runner-ului in grupul `docker`, `curl`. In *Settings > Secrets and variables > Actions* seteaza `AUTH_PASSWORD` (sau `AUTH_PASSWORD_HASH`) si optional `AUTH_USER`. Jobul de deploy foloseste environment-ul `homelab` (se creeaza automat; ii poti adauga aprobari manuale).
+Cerinte pe runner: Docker + plugin-ul `docker compose` si utilizatorul runner-ului in grupul `docker` (Node si curl nu sunt necesare pe runner; verificarile ruleaza in container). In *Settings > Secrets and variables > Actions* seteaza `AUTH_PASSWORD` (sau `AUTH_PASSWORD_HASH`) si optional `AUTH_USER`. Jobul de deploy foloseste environment-ul `homelab` (se creeaza automat; ii poti adauga aprobari manuale).
 
 ## Autentificare
 
