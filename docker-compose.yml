@@ -1,3 +1,5 @@
+name: billuminatti
+
 services:
   billuminatti:
     build: .
@@ -9,8 +11,10 @@ services:
     user: root
     environment:
       PORT: 3080
-      AUTH_USER: admin
-      AUTH_PASSWORD: schimba-ma   # sau foloseste AUTH_PASSWORD_HASH (node hash-password.js "parola")
+      AUTH_USER: ${AUTH_USER:-admin}
+      # Seteaza AUTH_PASSWORD (sau AUTH_PASSWORD_HASH) in .env sau in secretele GitHub; daca lipsesc ambele, se genereaza una (vezi logurile)
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
       # COOKIE_SECURE: "true"    # activeaza daca e servit prin HTTPS
       DISK_PATHS: /,/host   # adauga aici punctele de montare de urmarit
     volumes:

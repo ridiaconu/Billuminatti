@@ -1,0 +1,55 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: self-hosted
+    # Nu rula cod din fork-uri pe runner-ul din homelab
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificare sintaxa
+        run: |
+          node --check server.js
+          node --check public/app.js
+      - name: Build imagine
+        run: docker build -t billuminatti:${{ github.sha }} .
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    environment: homelab
+    env:
+      AUTH_USER: ${{ secrets.AUTH_USER || 'admin' }}
+      AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+      AUTH_PASSWORD_HASH: ${{ secrets.AUTH_PASSWORD_HASH }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verifica secretele
+        run: |
+          if [ -z "$AUTH_PASSWORD" ] && [ -z "$AUTH_PASSWORD_HASH" ]; then
+            echo "::error::Seteaza secretul AUTH_PASSWORD sau AUTH_PASSWORD_HASH in Settings > Secrets"; exit 1
+          fi
+      - name: Build si pornire container
+        run: docker compose up -d --build --remove-orphans
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS -o /dev/null http://localhost:3080/login; then echo "OK"; exit 0; fi
+            sleep 2
+          done
+          docker compose logs --tail=50
+          echo "::error::Aplicatia nu raspunde pe portul 3080"; exit 1
+      - name: Curatare imagini vechi
+        if: success()
+        run: docker image prune -f
