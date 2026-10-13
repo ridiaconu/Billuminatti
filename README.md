@@ -9,14 +9,14 @@ Dashboard pentru homelab, fara dependinte (doar Node.js >= 18):
 ## Rulare
 
 ```bash
-docker compose up -d --build     # apoi http://IP-HOMELAB:8080
+docker compose up -d --build     # apoi http://IP-HOMELAB:5299
 # sau, direct:
 node server.js
 ```
 
 Compose-ul foloseste `network_mode: host` si `pid: host` ca sa vada porturile si procesele gazdei, si monteaza `docker.sock` (read-only) pentru lista de aplicatii.
 
-Variabile: `PORT` (8080), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
+Variabile: `PORT` (5299), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
 
 ## Autentificare
 

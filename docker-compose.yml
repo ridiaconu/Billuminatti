@@ -8,7 +8,7 @@ services:
     pid: host
     user: root
     environment:
-      PORT: 8080
+      PORT: 5299
       AUTH_USER: admin
       AUTH_PASSWORD: schimba-ma   # sau foloseste AUTH_PASSWORD_HASH (node hash-password.js "parola")
       # COOKIE_SECURE: "true"    # activeaza daca e servit prin HTTPS

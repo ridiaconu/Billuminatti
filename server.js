@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const PORT = parseInt(process.env.PORT || '8080', 10);
+const PORT = parseInt(process.env.PORT || '5299', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 const DISK_PATHS = (process.env.DISK_PATHS || '/').split(',').map(s => s.trim()).filter(Boolean);
