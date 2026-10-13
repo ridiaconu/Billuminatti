@@ -78,3 +78,20 @@ setInterval(() => tick(loadResources), 2000);
 setInterval(() => { tick(loadApps, 'appsErr'); tick(loadPorts); }, 5000);
 
 $('logout').onclick = async e => { e.preventDefault(); await fetch('/auth/logout', { method: 'POST' }); location.href = '/login'; };
+
+$('genPort').onclick = async () => {
+  try {
+    const r = await fetch('/api/free-port', { method: 'POST' });
+    if (r.status === 401) { location.href = '/login'; return; }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    $('freePort').textContent = j.port;
+    $('freeMsg').textContent = `Liber (interval ${j.range[0]}–${j.range[1]}); rezervat 10 minute.`;
+    $('copyPort').hidden = false;
+  } catch (e) { $('freeMsg').textContent = 'Eroare: ' + e.message; }
+};
+$('copyPort').onclick = async () => {
+  try { await navigator.clipboard.writeText($('freePort').textContent); $('copyPort').textContent = 'Copiat'; }
+  catch { $('copyPort').textContent = 'Nu pot copia'; }
+  setTimeout(() => $('copyPort').textContent = 'Copiaza', 1500);
+};

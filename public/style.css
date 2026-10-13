@@ -36,3 +36,5 @@ th{color:var(--mut);font-size:12px;font-weight:600}tr:last-child td{border-botto
 #logout{color:var(--acc);font-size:12px}
 .login{max-width:340px;margin:12vh auto;padding:0 16px}.login form{display:grid;gap:12px}.login input{min-width:0;width:100%}
 .login button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px;font-size:14px;cursor:pointer}
+.freeport{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.freeport .big{min-width:80px;font-variant-numeric:tabular-nums}
+.freeport button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}.freeport button.ghost{background:var(--line);color:var(--fg)}
