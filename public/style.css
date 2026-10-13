@@ -33,3 +33,6 @@ th{color:var(--mut);font-size:12px;font-weight:600}tr:last-child td{border-botto
 .pill{padding:1px 8px;border-radius:10px;font-size:12px}
 .pill.ext{background:#f5a62326;color:var(--warn)}.pill.loc{background:#3ecf8e26;color:var(--ok)}
 .err{color:var(--bad);margin-top:8px}
+#logout{color:var(--acc);font-size:12px}
+.login{max-width:340px;margin:12vh auto;padding:0 16px}.login form{display:grid;gap:12px}.login input{min-width:0;width:100%}
+.login button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px;font-size:14px;cursor:pointer}

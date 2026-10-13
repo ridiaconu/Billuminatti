@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autentificare · Billuminatti</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login card">
+  <h1>Billuminatti</h1>
+  <p class="sub">Autentifica-te pentru a vedea dashboard-ul.</p>
+  <form id="f">
+    <input name="username" placeholder="Utilizator" autocomplete="username" required autofocus>
+    <input name="password" type="password" placeholder="Parola" autocomplete="current-password" required>
+    <button>Intra</button>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+<script>
+document.getElementById('f').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target, err = document.getElementById('err');
+  err.textContent = '';
+  const r = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: f.username.value, password: f.password.value }) });
+  if (r.ok) location.href = '/';
+  else err.textContent = (await r.json()).error || 'Eroare';
+};
+</script>
+</body>
+</html>
