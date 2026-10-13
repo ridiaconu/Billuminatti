@@ -9,18 +9,23 @@ Dashboard pentru homelab, fara dependinte (doar Node.js >= 18):
 ## Rulare
 
 ```bash
-docker compose up -d --build     # apoi http://IP-HOMELAB:3080
+docker compose up -d --build     # apoi http://IP-HOMELAB:5095
 # sau, direct:
 node server.js
 ```
 
 Compose-ul foloseste `network_mode: host` si `pid: host` ca sa vada porturile si procesele gazdei, si monteaza `docker.sock` (read-only) pentru lista de aplicatii.
 
-Variabile: `PORT` (3080), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
+Variabile: `PORT` (5095), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
+
+## Generator de porturi libere
+
+Butonul **Genereaza port liber** (sau `POST /api/free-port?count=3&min=10000&max=20000`, cu sesiune autentificata) returneaza un port aleatoriu care:
+nu e deschis pe gazda (TCP/UDP), nu e publicat de niciun container Docker, nu e portul dashboardului si se poate face efectiv `bind` pe el. Un port oferit nu mai e oferit din nou 10 minute. Intervalul implicit e `10000-32000` (`FREE_PORT_RANGE`).
 
 ## CI/CD (GitHub Actions, runner self-hosted)
 
-`.github/workflows/deploy.yml`: la PR face doar verificare + build; la push pe `main` (sau manual) face build si `docker compose up -d --build` pe runner, apoi un health check pe portul 3080.
+`.github/workflows/deploy.yml`: la PR face doar verificare + build; la push pe `main` (sau manual) face build si `docker compose up -d --build` pe runner, apoi un health check pe portul 5095.
 
 Cerinte pe runner: Docker + plugin-ul `docker compose` si utilizatorul runner-ului in grupul `docker` (Node si curl nu sunt necesare pe runner; verificarile ruleaza in container). In *Settings > Secrets and variables > Actions* seteaza `AUTH_PASSWORD` (sau `AUTH_PASSWORD_HASH`) si optional `AUTH_USER`. Jobul de deploy foloseste environment-ul `homelab` (se creeaza automat; ii poti adauga aprobari manuale).
 

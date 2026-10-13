@@ -46,11 +46,11 @@ jobs:
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            if docker exec billuminatti node -e "fetch('http://localhost:3080/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then echo "OK"; exit 0; fi
+            if docker exec billuminatti node -e "fetch('http://localhost:5095/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then echo "OK"; exit 0; fi
             sleep 2
           done
           docker compose logs --tail=50
-          echo "::error::Aplicatia nu raspunde pe portul 3080"; exit 1
+          echo "::error::Aplicatia nu raspunde pe portul 5095"; exit 1
       - name: Curatare imagini vechi
         if: success()
         run: docker image prune -f

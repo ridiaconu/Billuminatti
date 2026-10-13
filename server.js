@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const PORT = parseInt(process.env.PORT || '3080', 10);
+const PORT = parseInt(process.env.PORT || '5095', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 const DISK_PATHS = (process.env.DISK_PATHS || '/').split(',').map(s => s.trim()).filter(Boolean);
@@ -339,6 +339,40 @@ async function handleAuth(req, res, pathname) {
   json(res, 404, { error: 'Not found' });
 }
 
+
+// ---------- Generator de porturi libere ----------
+const net = require('net');
+const [RANGE_MIN, RANGE_MAX] = (process.env.FREE_PORT_RANGE || '10000-32000').split('-').map(Number);
+const RESERVE_MS = 10 * 60 * 1000; // un port oferit nu mai e oferit din nou 10 minute
+const handedOut = new Map(); // port -> expira
+
+function canBind(port) {
+  return new Promise(resolve => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.once('listening', () => srv.close(() => resolve(true)));
+    srv.listen(port, '0.0.0.0');
+  });
+}
+
+async function freePorts(count, min = RANGE_MIN, max = RANGE_MAX) {
+  const now = Date.now();
+  for (const [p, e] of handedOut) if (e < now) handedOut.delete(p);
+  const taken = new Set((await ports()).map(p => p.port));
+  try { for (const c of await apps()) for (const p of c.ports) taken.add(p.host); } catch { /* fara docker */ }
+  taken.add(PORT);
+  const out = [];
+  for (let tries = 0; out.length < count && tries < 500; tries++) {
+    const p = min + crypto.randomInt(max - min + 1);
+    if (taken.has(p) || handedOut.has(p) || out.includes(p)) continue;
+    if (!(await canBind(p))) { taken.add(p); continue; }
+    out.push(p);
+  }
+  if (out.length < count) throw new Error('Nu am gasit suficiente porturi libere in interval');
+  for (const p of out) handedOut.set(p, now + RESERVE_MS);
+  return out;
+}
+
 // ---------- Cache + server ----------
 function cached(fn, ttl) {
   let val, t = 0, pending = null;
@@ -368,6 +402,17 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(302, { Location: '/login' }); res.end(); return;
   }
   if (url.pathname === '/login' && isAuthed(req)) { res.writeHead(302, { Location: '/' }); res.end(); return; }
+  if (url.pathname === '/api/free-port') {
+    if (req.method !== 'POST') return json(res, 405, { error: 'Foloseste POST' });
+    const n = Math.min(20, Math.max(1, parseInt(url.searchParams.get('count') || '1', 10) || 1));
+    let min = parseInt(url.searchParams.get('min') || RANGE_MIN, 10);
+    let max = parseInt(url.searchParams.get('max') || RANGE_MAX, 10);
+    if (!(min >= 1024 && max <= 65535 && min <= max)) return json(res, 400, { error: 'Interval invalid (1024-65535)' });
+    try {
+      const list = await freePorts(n, min, max);
+      return json(res, 200, { port: list[0], ports: list, range: [min, max] });
+    } catch (e) { return json(res, 409, { error: e.message }); }
+  }
   const route = routes[url.pathname];
   if (route) {
     try {
