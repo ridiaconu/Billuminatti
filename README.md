@@ -18,6 +18,12 @@ Compose-ul foloseste `network_mode: host` si `pid: host` ca sa vada porturile si
 
 Variabile: `PORT` (3080), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
 
+## CI/CD (GitHub Actions, runner self-hosted)
+
+`.github/workflows/deploy.yml`: la PR face doar verificare + build; la push pe `main` (sau manual) face build si `docker compose up -d --build` pe runner, apoi un health check pe portul 3080.
+
+Cerinte pe runner: Docker + plugin-ul `docker compose`, utilizatorul runner-ului in grupul `docker`, `curl`. In *Settings > Secrets and variables > Actions* seteaza `AUTH_PASSWORD` (sau `AUTH_PASSWORD_HASH`) si optional `AUTH_USER`. Jobul de deploy foloseste environment-ul `homelab` (se creeaza automat; ii poti adauga aprobari manuale).
+
 ## Autentificare
 
 Login cu utilizator + parola (sesiune in cookie `HttpOnly`/`SameSite=Strict`, maxim 5 incercari esuate / 15 min per IP).
