@@ -11,6 +11,7 @@ services:
     user: root
     environment:
       PORT: 5095
+      TRUST_PROXY: "true"   # in spatele Cloudflare Tunnel: IP real pentru limitare + cookie Secure pe HTTPS
       AUTH_USER: ${AUTH_USER:-admin}
       # Seteaza AUTH_PASSWORD (sau AUTH_PASSWORD_HASH) in .env sau in secretele GitHub; daca lipsesc ambele, se genereaza una (vezi logurile)
       AUTH_PASSWORD: ${AUTH_PASSWORD:-}

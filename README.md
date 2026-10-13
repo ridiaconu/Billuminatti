@@ -35,6 +35,6 @@ Login cu utilizator + parola (sesiune in cookie `HttpOnly`/`SameSite=Strict`, ma
 
 - `AUTH_USER` (implicit `admin`), `AUTH_PASSWORD` sau, mai bine, `AUTH_PASSWORD_HASH` generat cu `node hash-password.js "parola"`
 - Daca nu setezi nicio parola, se genereaza una la pornire si apare in loguri
-- `SESSION_HOURS` (168), `COOKIE_SECURE=true` cand e dupa HTTPS, `AUTH_DISABLED=true` pentru a opri login-ul
+- `TRUST_PROXY=true` (in spatele Cloudflare Tunnel / reverse proxy: foloseste `CF-Connecting-IP`/`X-Forwarded-For` pentru limitarea incercarilor si marcheaza cookie-ul `Secure` pe HTTPS), `SESSION_HOURS` (168), `COOKIE_SECURE=true` cand e dupa HTTPS, `AUTH_DISABLED=true` pentru a opri login-ul
 
 Traficul nu e criptat de aplicatie: pentru acces din afara retelei locale pune-l in spatele unui reverse proxy cu HTTPS.
