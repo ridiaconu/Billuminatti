@@ -18,6 +18,12 @@ Compose-ul foloseste `network_mode: host` si `pid: host` ca sa vada porturile si
 
 Variabile: `PORT` (5095), `HOST` (0.0.0.0), `DOCKER_SOCKET`, `DISK_PATHS` (ex. `/,/mnt/data`).
 
+## Control containere
+
+Fiecare aplicatie are butoane **Start** / **Stop** / **Restart** (cu confirmare pentru stop/restart), prin `POST /api/containers/<id>/<start|stop|restart>` (doar autentificat, cu verificare `Origin`). Dashboardul nu isi poate controla propriul container (`SELF_CONTAINER`, implicit `billuminatti`). Se dezactiveaza cu `CONTAINER_CONTROL=false`.
+
+> Accesul la `docker.sock` echivaleaza cu root pe gazda: foloseste o parola puternica, iar daca expui dashboardul pe internet (Cloudflare Tunnel) pune in fata si Cloudflare Access.
+
 ## Generator de porturi libere
 
 Butonul **Genereaza port liber** (sau `POST /api/free-port?count=3&min=10000&max=20000`, cu sesiune autentificata) returneaza un port aleatoriu care:

@@ -116,12 +116,17 @@ function resources() {
 }
 
 // ---------- Docker ----------
-function docker(pathname) {
+function docker(pathname, method = 'GET', timeout = 8000) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ socketPath: DOCKER_SOCKET, path: pathname, timeout: 8000 }, res => {
+    const req = http.request({ socketPath: DOCKER_SOCKET, path: pathname, method, timeout }, res => {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => {
+        if (method !== 'GET') {
+          if (res.statusCode < 300 || res.statusCode === 304) return resolve(res.statusCode);
+          let msg = d; try { msg = JSON.parse(d).message; } catch { /* text simplu */ }
+          return reject(new Error(msg || `Docker a raspuns ${res.statusCode}`));
+        }
         try { resolve(JSON.parse(d)); } catch (e) { reject(new Error('raspuns Docker invalid')); }
       });
     });
@@ -377,19 +382,38 @@ async function freePorts(count, min = RANGE_MIN, max = RANGE_MAX) {
   return out;
 }
 
+
+// ---------- Control containere ----------
+const CONTROL_ENABLED = process.env.CONTAINER_CONTROL !== 'false';
+const SELF_CONTAINER = process.env.SELF_CONTAINER || 'billuminatti'; // dashboardul nu se poate opri/reporni singur
+const ACTIONS = { start: 'start', stop: 'stop', restart: 'restart' };
+
+async function containerAction(id, action) {
+  const list = await docker('/containers/json?all=1');
+  const c = list.find(x => x.Id.startsWith(id));
+  if (!c) throw Object.assign(new Error('Container negasit'), { code: 404 });
+  const name = (c.Names[0] || '').replace(/^\//, '');
+  if (name === SELF_CONTAINER) throw Object.assign(new Error('Dashboardul nu isi poate controla propriul container'), { code: 403 });
+  await docker(`/containers/${c.Id}/${action}`, 'POST', 40000);
+  routes['/api/apps'].clear(); routes['/api/ports'].clear();
+  return { name, action };
+}
+
 // ---------- Cache + server ----------
 function cached(fn, ttl) {
   let val, t = 0, pending = null;
-  return () => {
+  const get = () => {
     if (val !== undefined && Date.now() - t < ttl) return Promise.resolve(val);
     if (pending) return pending;
     pending = Promise.resolve().then(fn).then(v => { val = v; t = Date.now(); return v; }).finally(() => { pending = null; });
     return pending;
   };
+  get.clear = () => { val = undefined; };
+  return get;
 }
 const routes = {
   '/api/resources': cached(resources, 1000),
-  '/api/apps': cached(apps, 4000),
+  '/api/apps': cached(async () => ({ control: CONTROL_ENABLED, self: SELF_CONTAINER, list: await apps() }), 4000),
   '/api/ports': cached(ports, 4000),
 };
 
@@ -406,6 +430,19 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(302, { Location: '/login' }); res.end(); return;
   }
   if (url.pathname === '/login' && isAuthed(req)) { res.writeHead(302, { Location: '/' }); res.end(); return; }
+  const m = url.pathname.match(/^\/api\/containers\/([a-f0-9]{12,64})\/(start|stop|restart)$/);
+  if (m) {
+    if (req.method !== 'POST') return json(res, 405, { error: 'Foloseste POST' });
+    if (!CONTROL_ENABLED) return json(res, 403, { error: 'Controlul containerelor este dezactivat (CONTAINER_CONTROL=false)' });
+    // protectie CSRF in plus fata de SameSite=Strict: Origin, daca exista, trebuie sa fie acelasi host
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return json(res, 403, { error: 'Origin invalid' });
+    try {
+      const r = await containerAction(m[1], ACTIONS[m[2]]);
+      console.log(`[docker] ${r.action} ${r.name} (${clientIp(req)})`);
+      return json(res, 200, { ok: true, ...r });
+    } catch (e) { return json(res, e.code || 502, { error: e.message }); }
+  }
   if (url.pathname === '/api/free-port') {
     if (req.method !== 'POST') return json(res, 405, { error: 'Foloseste POST' });
     const n = Math.min(20, Math.max(1, parseInt(url.searchParams.get('count') || '1', 10) || 1));

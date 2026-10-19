@@ -7,7 +7,7 @@ const level = p => p >= 90 ? 'bad' : p >= 75 ? 'warn' : '';
 const bar = p => `<div class="bar ${level(p)}"><i style="width:${Math.min(100, p || 0)}%"></i></div>`;
 const card = (t, big, small, p) => `<div class="card"><h3>${t}</h3><div class="big">${big}</div><div class="small">${small}</div>${p != null ? bar(p) : ''}</div>`;
 
-let apps = [], ports = [];
+let apps = [], ports = [], control = false, selfName = '';
 
 async function get(url) {
   const r = await fetch(url);
@@ -47,6 +47,10 @@ function renderApps() {
       .map(p => p.proto === 'tcp' ? `<a class="tag" href="http://${location.hostname}:${p.host}" target="_blank" rel="noopener">:${p.host}</a>` : `<span class="tag">:${p.host}/${p.proto}</span>`).join('');
     return `<div class="card app"><div class="top"><span class="name"><span class="dot ${esc(a.state)}"></span>${esc(a.name)}</span><span class="small">${esc(a.state)}</span></div>
       <div class="small">${esc(a.image)}</div><div class="small">${esc(a.status)}</div>${stat ? `<div class="small">${stat}</div>` : ''}
+      ${control && a.name !== selfName ? `<div class="actions">${
+        a.state === 'running'
+          ? `<button data-act="restart" data-id="${esc(a.id)}">Restart</button><button data-act="stop" data-id="${esc(a.id)}" class="danger">Stop</button>`
+          : `<button data-act="start" data-id="${esc(a.id)}">Start</button>`}</div>` : ''}
       <div class="tags">${a.project ? `<span class="tag">${esc(a.project)}</span>` : ''}${pt}</div></div>`;
   }).join('') || '<div class="small">Nicio aplicatie.</div>';
 }
@@ -65,7 +69,7 @@ async function tick(fn, errId) {
   try { await fn(); if (errId) $(errId).textContent = ''; $('status').textContent = 'actualizat ' + new Date().toLocaleTimeString('ro-RO'); }
   catch (e) { if (errId) $(errId).textContent = 'Eroare: ' + e.message; else $('status').textContent = 'eroare: ' + e.message; }
 }
-const loadApps = async () => { apps = await get('/api/apps'); renderApps(); };
+const loadApps = async () => { const r = await get('/api/apps'); apps = r.list; control = r.control; selfName = r.self; renderApps(); };
 const loadPorts = async () => { ports = await get('/api/ports'); renderPorts(); };
 
 $('appFilter').oninput = renderApps;
@@ -94,4 +98,26 @@ $('copyPort').onclick = async () => {
   try { await navigator.clipboard.writeText($('freePort').textContent); $('copyPort').textContent = 'Copiat'; }
   catch { $('copyPort').textContent = 'Nu pot copia'; }
   setTimeout(() => $('copyPort').textContent = 'Copiaza', 1500);
+};
+
+const LABEL = { start: 'pornit', stop: 'oprit', restart: 'repornit' };
+$('apps').onclick = async e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const { act, id } = b.dataset;
+  const app = apps.find(x => x.id === id);
+  if (act !== 'start' && !confirm(`${act === 'stop' ? 'Opresti' : 'Repornesti'} containerul "${app ? app.name : id}"?`)) return;
+  const row = b.parentElement;
+  row.querySelectorAll('button').forEach(x => x.disabled = true);
+  b.textContent = '…';
+  try {
+    const r = await fetch(`/api/containers/${id}/${act}`, { method: 'POST' });
+    if (r.status === 401) { location.href = '/login'; return; }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    $('status').textContent = `${j.name} ${LABEL[act]}`;
+  } catch (err) {
+    $('appsErr').textContent = 'Eroare: ' + err.message;
+  }
+  tick(loadApps, 'appsErr'); tick(loadPorts);
 };

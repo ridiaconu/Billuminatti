@@ -38,3 +38,4 @@ th{color:var(--mut);font-size:12px;font-weight:600}tr:last-child td{border-botto
 .login button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px;font-size:14px;cursor:pointer}
 .freeport{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.freeport .big{min-width:80px;font-variant-numeric:tabular-nums}
 .freeport button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}.freeport button.ghost{background:var(--line);color:var(--fg)}
+.actions{display:flex;gap:6px;margin-top:10px}.actions button{background:var(--line);color:var(--fg);border:0;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}.actions button:hover{filter:brightness(1.2)}.actions button.danger{color:var(--bad)}.actions button:disabled{opacity:.5;cursor:wait}
